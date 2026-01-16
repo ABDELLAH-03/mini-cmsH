@@ -1,77 +1,73 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\SiteController;
+use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\PageController;
+use App\Http\Controllers\SiteController;
 use App\Http\Controllers\TemplateController;
-use App\Http\Controllers\MediaController;
+use App\Models\Page;
+use App\Models\Site;
 
-// Auth Routes (if using Laravel UI)
-//Auth::routes();
+// Authentication Routes
+Route::middleware('guest')->group(function () {
+    Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
+    Route::post('/login', [LoginController::class, 'login']);
 
-// Dashboard
-Route::middleware(['auth'])->group(function () {
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-
-    // Sites
-    Route::resource('sites', SiteController::class);
-    Route::get('sites/{site}/editor', [SiteController::class, 'editor'])->name('sites.editor');
-
-    // Pages
-    Route::prefix('sites/{site}/pages')->group(function () {
-        Route::get('/', [PageController::class, 'index'])->name('pages.index');
-        Route::post('/', [PageController::class, 'store'])->name('pages.store');
-        Route::get('/{page}/editor', [PageController::class, 'editor'])->name('pages.editor');
-        Route::put('/{page}', [PageController::class, 'update'])->name('pages.update');
-        Route::post('/order', [PageController::class, 'updateOrder'])->name('pages.order');
-        Route::delete('/{page}', [PageController::class, 'destroy'])->name('pages.destroy');
-    });
-
-    // Templates
-    Route::resource('templates', TemplateController::class)->only(['index', 'store']);
-    Route::post('templates/{template}/apply', [TemplateController::class, 'applyToPage'])->name('templates.apply');
-
-    // Media
-    Route::get('media', [MediaController::class, 'index'])->name('media.index');
-    Route::post('media/upload', [MediaController::class, 'store'])->name('media.store');
+    Route::get('/register', [RegisterController::class, 'showRegistrationForm'])->name('register');
+    Route::post('/register', [RegisterController::class, 'register']);
 });
 
-// Public site routes (for published sites)
-Route::domain('{subdomain}.' . config('app.domain', 'localhost'))->group(function () {
-    Route::get('/', function ($subdomain) {
-        $site = \App\Models\Site::where('subdomain', $subdomain)
-            ->where('status', 'published')
-            ->firstOrFail();
+Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
-        $page = $site->homepage();
-
-        if (!$page) {
-            abort(404);
-        }
-
-        return view('site.public', [
-            'site' => $site,
-            'page' => $page
-        ]);
-    });
-
-    Route::get('/{slug}', function ($subdomain, $slug) {
-        $site = \App\Models\Site::where('subdomain', $subdomain)
-            ->where('status', 'published')
-            ->firstOrFail();
-
-        $page = $site->pages()
-            ->where('slug', $slug)
-            ->whereNotNull('published_at')
-            ->firstOrFail();
-
-        return view('site.public', [
-            'site' => $site,
-            'page' => $page
-        ]);
-    });
-});
-
+// Homepage
 Route::get('/', function () {
-    return view('welcome');});
+    if (auth()->check()) {
+        return redirect()->route('dashboard');
+    }
+    return view('welcome');
+});
+
+// Protected Routes (Require Authentication)
+Route::middleware(['auth'])->group(function () {
+    Route::get('/dashboard', function () {
+        $sites = auth()->user()->sites()->latest()->get();
+        return view('dashboard', compact('sites'));
+    })->name('dashboard');
+
+    Route::resource('sites', SiteController::class);
+});
+// Page routes within sites
+Route::prefix('sites/{site}/pages')->name('sites.pages.')->group(function () {
+    Route::get('/', [PageController::class, 'index'])->name('index');
+    Route::get('/create', [PageController::class, 'create'])->name('create');
+    Route::post('/', [PageController::class, 'store'])->name('store');
+    Route::get('/{page}/edit', [PageController::class, 'edit'])->name('edit');
+    Route::put('/{page}', [PageController::class, 'update'])->name('update');
+    Route::delete('/{page}', [PageController::class, 'destroy'])->name('destroy');
+    Route::post('/order', [PageController::class, 'updateOrder'])->name('order');
+    Route::post('/{page}/set-homepage', [PageController::class, 'setHomepage'])->name('set-homepage');
+});
+// Template routes
+Route::resource('templates', TemplateController::class)->except(['show']);
+Route::post('/templates/apply', [TemplateController::class, 'apply'])->name('templates.apply');
+Route::post('/sites/{site}/pages/{page}/save-template', [TemplateController::class, 'saveFromPage'])->name('templates.save-from-page');
+
+// API routes for AJAX
+Route::prefix('api')->group(function () {
+    Route::get('/sites/{site}/pages', function (Site $site) {
+        if ($site->user_id !== auth()->id()) {
+            return response()->json([], 403);
+        }
+        return $site->pages()->select('id', 'title')->get();
+    });
+
+    Route::get('/pages/{page}/content', function (Page $page) {
+        if ($page->site->user_id !== auth()->id()) {
+            return response()->json([], 403);
+        }
+        return $page->content;
+    });
+
+    Route::get('/templates', [TemplateController::class, 'index']);
+});

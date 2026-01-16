@@ -1,32 +1,57 @@
-<?
+<?php
 
 namespace App\Http\Controllers;
 
-use App\Models\Page;
 use App\Models\Site;
+use App\Models\Page;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 
 class PageController extends Controller
 {
+    /**
+     * Display pages for a specific site
+     */
     public function index(Site $site)
     {
-        $this->authorize('view', $site);
+        // Authorization check
+        if ($site->user_id !== Auth::id()) {
+            abort(403);
+        }
 
         $pages = $site->pages()->with('children')->orderBy('order')->get();
-
         return view('pages.index', compact('site', 'pages'));
     }
 
+    /**
+     * Show form to create a new page
+     */
+    public function create(Site $site)
+    {
+        if ($site->user_id !== Auth::id()) {
+            abort(403);
+        }
+
+        $parentPages = $site->pages()->whereNull('parent_id')->get();
+        return view('pages.create', compact('site', 'parentPages'));
+    }
+
+    /**
+     * Store a new page
+     */
     public function store(Request $request, Site $site)
     {
-        $this->authorize('update', $site);
+        if ($site->user_id !== Auth::id()) {
+            abort(403);
+        }
 
         $request->validate([
             'title' => 'required|string|max:255',
-            'parent_id' => 'nullable|exists:pages,id'
+            'parent_id' => 'nullable|exists:pages,id',
         ]);
 
+        // Generate slug
         $slug = Str::slug($request->title);
         $count = Page::where('site_id', $site->id)
             ->where('slug', 'like', "{$slug}%")
@@ -36,45 +61,63 @@ class PageController extends Controller
             $slug = "{$slug}-" . ($count + 1);
         }
 
+        // Create page
         $page = $site->pages()->create([
             'title' => $request->title,
             'slug' => $slug,
             'parent_id' => $request->parent_id,
             'content' => ['sections' => []],
-            'seo' => ['title' => $request->title]
+            'seo' => ['title' => $request->title, 'description' => ''],
+            'order' => $site->pages()->count(),
         ]);
 
-        return response()->json([
-            'success' => true,
-            'page' => $page,
-            'redirect' => route('pages.editor', [$site, $page])
-        ]);
+        return redirect()->route('sites.pages.edit', [$site, $page])
+            ->with('success', 'Page created successfully!');
     }
 
-    public function editor(Site $site, Page $page)
+    /**
+     * Show page editor
+     */
+    public function edit(Site $site, Page $page)
     {
-        $this->authorize('update', $site);
+        if ($site->user_id !== Auth::id() || $page->site_id !== $site->id) {
+            abort(403);
+        }
 
-        $templates = \App\Models\Template::public()->get();
-
-        return view('pages.editor', compact('site', 'page', 'templates'));
+        return view('pages.editor', compact('site', 'page'));
     }
 
+    /**
+     * Update page content
+     */
     public function update(Request $request, Site $site, Page $page)
     {
-        $this->authorize('update', $site);
+        if ($site->user_id !== Auth::id() || $page->site_id !== $site->id) {
+            abort(403);
+        }
+
+        $request->validate([
+            'content' => 'required|array',
+            'seo.title' => 'required|string|max:255',
+            'seo.description' => 'nullable|string|max:160',
+        ]);
 
         $page->update([
             'content' => $request->content,
-            'seo' => $request->seo ?? $page->seo
+            'seo' => $request->seo,
         ]);
 
-        return response()->json(['success' => true]);
+        return response()->json(['success' => true, 'message' => 'Page saved!']);
     }
 
+    /**
+     * Update page order (for drag & drop)
+     */
     public function updateOrder(Request $request, Site $site)
     {
-        $this->authorize('update', $site);
+        if ($site->user_id !== Auth::id()) {
+            abort(403);
+        }
 
         foreach ($request->order as $order => $pageId) {
             Page::where('id', $pageId)
@@ -85,18 +128,39 @@ class PageController extends Controller
         return response()->json(['success' => true]);
     }
 
+    /**
+     * Delete a page
+     */
     public function destroy(Site $site, Page $page)
     {
-        $this->authorize('delete', $page);
+        if ($site->user_id !== Auth::id() || $page->site_id !== $site->id) {
+            abort(403);
+        }
 
+        // Don't allow deleting homepage
         if ($page->is_homepage) {
-            return response()->json([
-                'error' => 'Cannot delete homepage'
-            ], 422);
+            return back()->withErrors(['error' => 'Cannot delete homepage. Set another page as homepage first.']);
         }
 
         $page->delete();
+        return back()->with('success', 'Page deleted successfully.');
+    }
 
-        return response()->json(['success' => true]);
+    /**
+     * Set a page as homepage
+     */
+    public function setHomepage(Site $site, Page $page)
+    {
+        if ($site->user_id !== Auth::id() || $page->site_id !== $site->id) {
+            abort(403);
+        }
+
+        // Remove homepage from other pages
+        $site->pages()->update(['is_homepage' => false]);
+
+        // Set this page as homepage
+        $page->update(['is_homepage' => true]);
+
+        return back()->with('success', 'Homepage updated successfully.');
     }
 }

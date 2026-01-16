@@ -1,9 +1,8 @@
-<?
+<?php
 
 namespace App\Http\Controllers;
 
 use App\Models\Site;
-use App\Services\SiteBuilder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -27,39 +26,62 @@ class SiteController extends Controller
             'subdomain' => 'required|alpha_dash|unique:sites,subdomain'
         ]);
 
-        $site = SiteBuilder::createDefaultSite(Auth::user(), $request->all());
+        $site = Auth::user()->sites()->create([
+            'name' => $request->name,
+            'subdomain' => $request->subdomain,
+            'settings' => [
+                'primary_color' => '#3B82F6',
+                'font_family' => 'Inter',
+                'container_width' => '1200px'
+            ]
+        ]);
 
-        return redirect()->route('sites.editor', $site)
+        return redirect()->route('sites.edit', $site)
             ->with('success', 'Site created successfully!');
     }
 
-    public function editor(Site $site)
+    public function show(Site $site)
     {
-        $this->authorize('update', $site);
+        return view('sites.show', compact('site'));
+    }
 
-        $pages = $site->pages()->orderBy('order')->get();
-        $templates = \App\Models\Template::public()->get();
+    public function edit(Site $site)
+    {
+        // Add authorization check
+        if ($site->user_id !== Auth::id()) {
+            abort(403);
+        }
 
-        return view('sites.editor', compact('site', 'pages', 'templates'));
+        return view('sites.edit', compact('site'));
     }
 
     public function update(Request $request, Site $site)
     {
-        $this->authorize('update', $site);
+        if ($site->user_id !== Auth::id()) {
+            abort(403);
+        }
 
-        $site->update([
-            'settings' => array_merge($site->settings ?? [], $request->settings)
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'status' => 'required|in:draft,published',
         ]);
 
-        return response()->json(['success' => true]);
-    }
+        $site->update([
+            'name' => $request->name,
+            'status' => $request->status,
+        ]);
 
+        return redirect()->route('sites.edit', $site)
+            ->with('success', 'Site updated successfully!');
+    }
     public function destroy(Site $site)
     {
-        $this->authorize('delete', $site);
-        $site->delete();
+        if ($site->user_id !== Auth::id()) {
+            abort(403);
+        }
 
-        return redirect()->route('dashboard')
-            ->with('success', 'Site deleted successfully!');
+        $site->delete();
+        return redirect()->route('sites.index')
+            ->with('success', 'Site deleted!');
     }
 }

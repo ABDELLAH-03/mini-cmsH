@@ -41,12 +41,4 @@ class Page extends Model
     {
         return $this->hasMany(Page::class, 'parent_id');
     }
-
-    public function getUrlAttribute()
-    {
-        if ($this->is_homepage) {
-            return url('/');
-        }
-        return url('/' . $this->slug);
-    }
 }

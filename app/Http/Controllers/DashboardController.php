@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Site;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -10,18 +9,13 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        $user = Auth::user();
-
-        if ($user->isAdmin()) {
-            $sites = Site::with('user')->latest()->paginate(10);
-            $totalSites = Site::count();
-            $totalUsers = \App\Models\User::count();
-
-            return view('admin.dashboard', compact('sites', 'totalSites', 'totalUsers'));
+        // For now, let's just require auth
+        if (!auth()->check()) {
+            // Simple auth check - we'll add proper login later
+            return redirect('/'); // or create a login page
         }
 
-        $sites = $user->sites()->withCount('pages')->latest()->paginate(6);
-
+        $sites = auth()->user()->sites()->latest()->get();
         return view('dashboard', compact('sites'));
     }
 }

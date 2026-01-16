@@ -31,19 +31,4 @@ class Site extends Model
     {
         return $this->hasMany(Page::class);
     }
-
-    public function templates()
-    {
-        return $this->belongsToMany(Template::class, 'site_template');
-    }
-
-    public function media()
-    {
-        return $this->hasMany(Media::class);
-    }
-
-    public function homepage()
-    {
-        return $this->pages()->where('is_homepage', true)->first();
-    }
 }
