@@ -163,4 +163,35 @@ class PageController extends Controller
 
         return back()->with('success', 'Homepage updated successfully.');
     }
+    /**
+     * Publish a page
+     */
+    public function publish(Site $site, Page $page)
+    {
+        if ($site->user_id !== Auth::id() || $page->site_id !== $site->id) {
+            abort(403);
+        }
+
+        $page->update([
+            'published_at' => now()
+        ]);
+
+        return back()->with('success', 'Page published successfully!');
+    }
+
+    /**
+     * Unpublish a page
+     */
+    public function unpublish(Site $site, Page $page)
+    {
+        if ($site->user_id !== Auth::id() || $page->site_id !== $site->id) {
+            abort(403);
+        }
+
+        $page->update([
+            'published_at' => null
+        ]);
+
+        return back()->with('success', 'Page unpublished.');
+    }
 }

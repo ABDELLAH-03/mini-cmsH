@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\PageController;
+use App\Http\Controllers\PublicSiteController;
 use App\Http\Controllers\SiteController;
 use App\Http\Controllers\TemplateController;
 use App\Models\Page;
@@ -71,3 +72,30 @@ Route::prefix('api')->group(function () {
 
     Route::get('/templates', [TemplateController::class, 'index']);
 });
+// Public site routes (subdomain based)
+Route::domain('{subdomain}.' . env('DOMAIN', 'localhost'))->group(function () {
+    Route::get('/', [PublicSiteController::class, 'showSite'])->name('public.site');
+    Route::get('/{slug}', [PublicSiteController::class, 'showSite'])->name('public.page');
+});
+
+// Preview routes (protected)
+Route::middleware(['auth'])->group(function () {
+    Route::get('/sites/{site}/pages/{page}/preview', [PublicSiteController::class, 'preview'])->name('sites.pages.preview');
+});
+
+// API routes for live preview
+Route::prefix('api')->group(function () {
+    Route::get('/pages/{page}/last-modified', function (Page $page) {
+        return response()->json([
+            'last_modified' => strtotime($page->updated_at)
+        ]);
+    });
+
+    Route::post('/page-view', function (Request $request) {
+        // Track page views (simplified)
+        Log::info('Page view', $request->all());
+        return response()->json(['success' => true]);
+    });
+});
+Route::post('/sites/{site}/pages/{page}/publish', [PageController::class, 'publish'])->name('sites.pages.publish');
+Route::post('/sites/{site}/pages/{page}/unpublish', [PageController::class, 'unpublish'])->name('sites.pages.unpublish');

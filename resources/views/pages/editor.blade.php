@@ -25,11 +25,12 @@
                         <span id="save-text">Save</span>
                     </button>
                     
-                    <!-- View Page -->
-                    <a href="#" target="_blank"
-                       class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
-                        Preview
-                    </a>
+                    <!-- Preview Button -->
+<a href="{{ route('sites.pages.preview', [$site, $page]) }}" 
+   target="_blank"
+   class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+    👁️ Preview
+</a>
                     
                     <!-- Back to Pages -->
                     <a href="{{ route('sites.pages.index', $site) }}" 
@@ -37,6 +38,27 @@
                         ← Pages
                     </a>
                 </div>
+                @if($page->published_at)
+    <form action="{{ route('sites.pages.unpublish', [$site, $page]) }}" method="POST" class="inline">
+        @csrf
+        <button type="submit" 
+                class="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700"
+                onclick="return confirm('Unpublish this page?')">
+            ⏸️ Unpublish
+        </button>
+    </form>
+    <span class="text-green-600 ml-2">✓ Published</span>
+@else
+    <form action="{{ route('sites.pages.publish', [$site, $page]) }}" method="POST" class="inline">
+        @csrf
+        <button type="submit" 
+                class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+            🚀 Publish
+        </button>
+    </form>
+    <span class="text-gray-500 ml-2">Draft</span>
+@endif
+                
             </div>
         </div>
     </div>
@@ -73,6 +95,7 @@
                 <div class="font-medium">Contact Form</div>
                 <div class="text-sm text-gray-500">Contact information and form</div>
             </button>
+            
         </div>
     </div>
     
@@ -660,5 +683,120 @@ function closeSaveTemplateModal() {
 
 // Load templates when editor loads
 loadTemplates();
+// Live preview functionality
+let previewWindow = null;
+
+// Open preview in new window
+function openLivePreview() {
+    const previewUrl = '{{ route("sites.pages.preview", [$site, $page]) }}';
+    previewWindow = window.open(previewUrl, 'preview_{{ $page->id }}', 'width=1200,height=800');
+    
+    if (previewWindow) {
+        // Send initial content
+        updatePreview();
+    }
+}
+
+// Update preview window with current content
+function updatePreview() {
+    if (!previewWindow || previewWindow.closed) return;
+    
+    const content = {
+        sections: pageContent,
+        title: document.getElementById('seo-title')?.value || '{{ $page->title }}'
+    };
+    
+    // This would typically use WebSockets, but for simplicity we'll use a form
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '{{ route("sites.pages.preview", [$site, $page]) }}';
+    form.target = 'preview_{{ $page->id }}';
+    form.style.display = 'none';
+    
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'content';
+    input.value = JSON.stringify(content);
+    
+    const csrf = document.createElement('input');
+    csrf.type = 'hidden';
+    csrf.name = '_token';
+    csrf.value = '{{ csrf_token() }}';
+    
+    form.appendChild(input);
+    form.appendChild(csrf);
+    document.body.appendChild(form);
+    
+    // Store preview window reference
+    window.previewWindows = window.previewWindows || {};
+    window.previewWindows['{{ $page->id }}'] = previewWindow;
+    
+    form.submit();
+    form.remove();
+}
+
+// Auto-update preview on save
+function savePage() {
+    const saveButton = document.getElementById('save-button');
+    const saveIcon = document.getElementById('save-icon');
+    const saveText = document.getElementById('save-text');
+    
+    // Show saving state
+    saveButton.disabled = true;
+    saveIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>';
+    saveText.textContent = 'Saving...';
+    
+    // Prepare data
+    const data = {
+        content: { sections: pageContent },
+        seo: {
+            title: document.getElementById('seo-title').value,
+            description: document.getElementById('seo-description').value
+        }
+    };
+    
+    // Send to server
+    fetch('{{ route("sites.pages.update", [$site, $page]) }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+            'X-HTTP-Method-Override': 'PUT'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Show success state
+        saveIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>';
+        saveText.textContent = 'Saved!';
+        
+        // Update preview if open
+        updatePreview();
+        
+        setTimeout(() => {
+            saveText.textContent = 'Save';
+            saveButton.disabled = false;
+        }, 2000);
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        saveIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>';
+        saveText.textContent = 'Error';
+        
+        setTimeout(() => {
+            saveText.textContent = 'Save';
+            saveButton.disabled = false;
+        }, 2000);
+    });
+}
+
+// Auto-save every 30 seconds
+setInterval(() => {
+    if (pageContent.length > 0 && document.hasFocus()) {
+        console.log('Auto-saving...');
+        savePage();
+    }
+}, 30000);
 </script>
 @endsection
