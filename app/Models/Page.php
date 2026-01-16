@@ -18,13 +18,15 @@ class Page extends Model
         'seo',
         'is_homepage',
         'order',
-        'published_at'
+        'published_at',
+        'views'
     ];
 
     protected $casts = [
         'content' => 'array',
         'seo' => 'array',
         'published_at' => 'datetime',
+        'views' => 'integer'
     ];
 
     public function site()
@@ -40,5 +42,9 @@ class Page extends Model
     public function children()
     {
         return $this->hasMany(Page::class, 'parent_id');
+    }
+    public function incrementViews()
+    {
+        $this->increment('views');
     }
 }

@@ -31,6 +31,33 @@
                     </div>
                 </div>
             </div>
+            <!-- Add to dashboard after quick stats -->
+<div class="mt-8 bg-white rounded-lg shadow p-6">
+    <h2 class="text-xl font-semibold mb-4">📊 Site Analytics</h2>
+    
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="text-center p-4 border rounded-lg">
+            <div class="text-2xl font-bold text-blue-600">
+                {{ auth()->user()->sites()->sum('views') }}
+            </div>
+            <div class="text-sm text-gray-600 mt-1">Total Views</div>
+        </div>
+        
+        <div class="text-center p-4 border rounded-lg">
+            <div class="text-2xl font-bold text-green-600">
+                {{ auth()->user()->sites()->where('status', 'published')->count() }}
+            </div>
+            <div class="text-sm text-gray-600 mt-1">Published Sites</div>
+        </div>
+        
+        <div class="text-center p-4 border rounded-lg">
+            <div class="text-2xl font-bold text-purple-600">
+                {{ auth()->user()->pages()->whereNotNull('published_at')->count() }}
+            </div>
+            <div class="text-sm text-gray-600 mt-1">Published Pages</div>
+        </div>
+    </div>
+</div>
 
             <!-- Sites List -->
             <div class="lg:col-span-2">

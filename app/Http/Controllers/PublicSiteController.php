@@ -46,6 +46,11 @@ class PublicSiteController extends Controller
      */
     private function renderPage(Site $site, Page $page)
     {
+        // Increment view count (only for public views, not previews)
+        if (!request()->has('preview')) {
+            $page->incrementViews();
+        }
+
         $settings = $site->settings ?? [];
         $theme = $this->getThemeStyles($settings);
 
@@ -148,4 +153,5 @@ class PublicSiteController extends Controller
             'is_preview' => true
         ]);
     }
+    
 }

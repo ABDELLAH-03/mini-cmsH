@@ -75,6 +75,51 @@
                                 <span class="ml-2">Published</span>
                             </label>
                         </div>
+                        <!-- Add to the status section -->
+<div class="mt-6">
+    <h3 class="text-lg font-semibold mb-4">Site Visibility</h3>
+    
+    @if($site->status === 'published')
+        <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <span class="text-green-800 font-medium">✓ Published</span>
+                    <p class="text-green-600 text-sm mt-1">
+                        Your site is publicly accessible at:
+                        <code class="block mt-1 font-mono">http://{{ $site->subdomain }}.localhost</code>
+                    </p>
+                </div>
+                <form action="{{ route('sites.unpublish', $site) }}" method="POST">
+                    @csrf
+                    <button type="submit" 
+                            class="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700"
+                            onclick="return confirm('Unpublish this site? It will no longer be publicly accessible.')">
+                        Unpublish Site
+                    </button>
+                </form>
+            </div>
+        </div>
+    @else
+        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <span class="text-yellow-800 font-medium">Draft</span>
+                    <p class="text-yellow-600 text-sm mt-1">
+                        Your site is not publicly accessible yet.
+                    </p>
+                </div>
+                <form action="{{ route('sites.publish', $site) }}" method="POST">
+                    @csrf
+                    <button type="submit" 
+                            class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                            onclick="return confirm('Publish this site? It will be publicly accessible at: http://{{ $site->subdomain }}.localhost')">
+                        Publish Site
+                    </button>
+                </form>
+            </div>
+        </div>
+    @endif
+</div>
                     </div>
 
                     <!-- Actions -->

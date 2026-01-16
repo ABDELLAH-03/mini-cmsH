@@ -69,6 +69,45 @@
                     location.reload();
                 });
         }
+        // Listen for content updates from editor
+window.addEventListener('message', function(event) {
+    if (event.data.type === 'content-update') {
+        console.log('Content update received at:', new Date().toLocaleTimeString());
+        
+        // Show updating indicator
+        showUpdatingIndicator();
+        
+        // Reload the page to show new content
+        setTimeout(() => {
+            location.reload();
+        }, 500);
+    }
+});
+
+// Show updating indicator
+function showUpdatingIndicator() {
+    const indicator = document.createElement('div');
+    indicator.id = 'updating-indicator';
+    indicator.className = 'fixed bottom-4 right-4 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+    indicator.innerHTML = '🔄 Updating preview...';
+    
+    document.body.appendChild(indicator);
+    
+    setTimeout(() => {
+        if (indicator.parentElement) {
+            indicator.remove();
+        }
+    }, 3000);
+}
+
+// Notify editor that preview is ready
+if (window.opener) {
+    window.addEventListener('load', function() {
+        setTimeout(() => {
+            window.opener.postMessage({ type: 'preview-ready' }, '*');
+        }, 1000);
+    });
+}
     </script>
 </body>
 </html>

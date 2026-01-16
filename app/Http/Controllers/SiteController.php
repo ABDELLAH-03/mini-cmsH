@@ -84,4 +84,31 @@ class SiteController extends Controller
         return redirect()->route('sites.index')
             ->with('success', 'Site deleted!');
     }
+    /**
+     * Publish a site (make it publicly accessible)
+     */
+    public function publish(Site $site)
+    {
+        if ($site->user_id !== Auth::id()) {
+            abort(403);
+        }
+
+        $site->update(['status' => 'published']);
+
+        return back()->with('success', 'Site published! It\'s now publicly accessible.');
+    }
+
+    /**
+     * Unpublish a site
+     */
+    public function unpublish(Site $site)
+    {
+        if ($site->user_id !== Auth::id()) {
+            abort(403);
+        }
+
+        $site->update(['status' => 'draft']);
+
+        return back()->with('success', 'Site unpublished. It\'s no longer publicly accessible.');
+    }
 }

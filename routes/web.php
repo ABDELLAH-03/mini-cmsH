@@ -99,3 +99,5 @@ Route::prefix('api')->group(function () {
 });
 Route::post('/sites/{site}/pages/{page}/publish', [PageController::class, 'publish'])->name('sites.pages.publish');
 Route::post('/sites/{site}/pages/{page}/unpublish', [PageController::class, 'unpublish'])->name('sites.pages.unpublish');
+Route::post('/sites/{site}/publish', [SiteController::class, 'publish'])->name('sites.publish');
+Route::post('/sites/{site}/unpublish', [SiteController::class, 'unpublish'])->name('sites.unpublish');

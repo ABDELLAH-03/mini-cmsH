@@ -24,40 +24,49 @@
                         </svg>
                         <span id="save-text">Save</span>
                     </button>
-                    
-                    <!-- Preview Button -->
-<a href="{{ route('sites.pages.preview', [$site, $page]) }}" 
-   target="_blank"
-   class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
-    👁️ Preview
-</a>
-                    
-                    <!-- Back to Pages -->
-                    <a href="{{ route('sites.pages.index', $site) }}" 
-                       class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
-                        ← Pages
-                    </a>
+
+            
                 </div>
-                @if($page->published_at)
-    <form action="{{ route('sites.pages.unpublish', [$site, $page]) }}" method="POST" class="inline">
-        @csrf
-        <button type="submit" 
-                class="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700"
-                onclick="return confirm('Unpublish this page?')">
-            ⏸️ Unpublish
-        </button>
-    </form>
-    <span class="text-green-600 ml-2">✓ Published</span>
-@else
-    <form action="{{ route('sites.pages.publish', [$site, $page]) }}" method="POST" class="inline">
-        @csrf
-        <button type="submit" 
-                class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
-            🚀 Publish
-        </button>
-    </form>
-    <span class="text-gray-500 ml-2">Draft</span>
-@endif
+                <!-- Add this with the other buttons in the header -->
+<div class="flex items-center space-x-3">
+    <!-- Preview Button -->
+    <a href="{{ route('sites.pages.preview', [$site, $page]) }}" 
+       target="_blank"
+       class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+        👁️ Preview
+    </a>
+    
+    <!-- Publish/Unpublish Button -->
+    @if($page->published_at)
+        <form action="{{ route('sites.pages.unpublish', [$site, $page]) }}" method="POST" class="inline">
+            @csrf
+            <button type="submit" 
+                    class="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700"
+                    onclick="return confirm('Unpublish this page? It will no longer be publicly accessible.')">
+                ⏸️ Unpublish
+            </button>
+        </form>
+        <span class="text-green-600 text-sm">
+            ✓ Published {{ $page->published_at->diffForHumans() }}
+        </span>
+    @else
+        <form action="{{ route('sites.pages.publish', [$site, $page]) }}" method="POST" class="inline">
+            @csrf
+            <button type="submit" 
+                    class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                    onclick="return confirm('Publish this page? It will be publicly accessible.')">
+                🚀 Publish
+            </button>
+        </form>
+        <span class="text-gray-500 text-sm">Draft</span>
+    @endif
+    
+    <!-- Back to Pages -->
+    <a href="{{ route('sites.pages.index', $site) }}" 
+       class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+        ← Pages
+    </a>
+</div>
                 
             </div>
         </div>
@@ -683,6 +692,9 @@ function closeSaveTemplateModal() {
 
 // Load templates when editor loads
 loadTemplates();
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Live preview functionality
 let previewWindow = null;
 
@@ -798,5 +810,132 @@ setInterval(() => {
         savePage();
     }
 }, 30000);
+///////////////////////////////////////////////////////////////////////////
+// Enhanced live preview functionality
+let previewInterval = null;
+
+// Open preview in new window
+function openLivePreview() {
+    const previewUrl = '{{ route("sites.pages.preview", [$site, $page]) }}';
+    previewWindow = window.open(previewUrl, 'preview_{{ $page->id }}', 'width=1200,height=800,scrollbars=yes');
+    
+    if (previewWindow) {
+        // Start auto-update interval
+        startPreviewUpdates();
+        
+        // Setup message listener for preview window
+        window.addEventListener('message', handlePreviewMessage);
+        
+        // Show preview status
+        showNotification('Preview opened in new window', 'info');
+    } else {
+        showNotification('Please allow popups for live preview', 'error');
+    }
+}
+
+// Handle messages from preview window
+function handlePreviewMessage(event) {
+    if (event.data.type === 'preview-ready') {
+        console.log('Preview window is ready');
+        updatePreviewContent();
+    }
+}
+
+// Start auto-updating preview
+function startPreviewUpdates() {
+    if (previewInterval) clearInterval(previewInterval);
+    
+    previewInterval = setInterval(() => {
+        if (previewWindow && !previewWindow.closed) {
+            updatePreviewContent();
+        } else {
+            // Preview window closed, stop updates
+            clearInterval(previewInterval);
+            previewInterval = null;
+            previewWindow = null;
+        }
+    }, 3000); // Update every 3 seconds
+}
+
+// Update preview window content
+function updatePreviewContent() {
+    if (!previewWindow || previewWindow.closed) return;
+    
+    const content = {
+        sections: pageContent,
+        title: document.getElementById('seo-title')?.value || '{{ $page->title }}',
+        description: document.getElementById('seo-description')?.value || ''
+    };
+    
+    // Send content to preview window
+    previewWindow.postMessage({
+        type: 'content-update',
+        content: content,
+        timestamp: Date.now()
+    }, '*');
+}
+
+// Enhanced save function with preview update
+function savePage() {
+    const saveButton = document.getElementById('save-button');
+    const saveIcon = document.getElementById('save-icon');
+    const saveText = document.getElementById('save-text');
+    
+    // Show saving state
+    saveButton.disabled = true;
+    saveIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>';
+    saveText.textContent = 'Saving...';
+    
+    // Prepare data
+    const data = {
+        content: { sections: pageContent },
+        seo: {
+            title: document.getElementById('seo-title')?.value,
+            description: document.getElementById('seo-description')?.value
+        }
+    };
+    
+    // Send to server
+    fetch('{{ route("sites.pages.update", [$site, $page]) }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+            'X-HTTP-Method-Override': 'PUT'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Show success state
+        saveIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>';
+        saveText.textContent = 'Saved!';
+        
+        // Update preview if open
+        updatePreviewContent();
+        
+        // Show success message
+        showNotification('Page saved successfully', 'success');
+        
+        setTimeout(() => {
+            saveText.textContent = 'Save';
+            saveButton.disabled = false;
+        }, 2000);
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        saveIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>';
+        saveText.textContent = 'Error';
+        
+        showNotification('Error saving page: ' + error.message, 'error');
+        
+        setTimeout(() => {
+            saveText.textContent = 'Save';
+            saveButton.disabled = false;
+        }, 2000);
+    });
+}
+
+// Update the preview window to handle real-time updates
 </script>
 @endsection
