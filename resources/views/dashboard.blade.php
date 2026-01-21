@@ -52,8 +52,9 @@
         
         <div class="text-center p-4 border rounded-lg">
             <div class="text-2xl font-bold text-purple-600">
-                {{ auth()->user()->pages()->whereNotNull('published_at')->count() }}
-            </div>
+{{ auth()->user()->sites->sum(function($site) {
+    return $site->pages->whereNotNull('published_at')->count();
+}) }}            </div>
             <div class="text-sm text-gray-600 mt-1">Published Pages</div>
         </div>
     </div>
