@@ -194,4 +194,37 @@ class PageController extends Controller
 
         return back()->with('success', 'Page unpublished.');
     }
+    /**
+     * Delete a specific section from a page
+     */
+    public function deleteSection(Request $request, Site $site, Page $page)
+    {
+        if ($site->user_id !== Auth::id() || $page->site_id !== $site->id) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $request->validate([
+            'section_id' => 'required|string',
+        ]);
+
+        // Get current content
+        $content = $page->content ?? ['sections' => []];
+
+        // Filter out the section to delete
+        $newSections = array_filter($content['sections'], function ($section) use ($request) {
+            return ($section['id'] ?? '') !== $request->section_id;
+        });
+
+        // Re-index array
+        $content['sections'] = array_values($newSections);
+
+        // Update page
+        $page->update(['content' => $content]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Section deleted',
+            'remaining_sections' => count($content['sections'])
+        ]);
+    }
 }

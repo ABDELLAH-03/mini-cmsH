@@ -12,10 +12,10 @@
                     class="text-gray-600 hover:text-gray-900 p-1">
                 ⚙️ Settings
             </button>
-            <button onclick="deleteSection('{{ $section['id'] }}')"
-                    class="text-red-600 hover:text-red-900 p-1">
-                🗑️ Delete
-            </button>
+            <button onclick="emergencyDelete('{{ $section['id'] }}')"
+        class="text-red-600 hover:text-red-900 p-1">
+    🗑️ EMERGENCY DELETE
+</button>
         </div>
     </div>
     
@@ -61,11 +61,17 @@
         @elseif($section['type'] === 'content')
         <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Content</label>
-            <textarea oninput="updateSectionContent('{{ $section['id'] }}', 'html', this.value)"
-                      class="w-full px-3 py-2 border border-gray-300 rounded font-mono"
-                      rows="6"
-                      placeholder="Enter your content here...">{{ $section['content']['html'] ?? '' }}</textarea>
-            <p class="text-sm text-gray-500 mt-1">You can use HTML tags for formatting.</p>
+            <!-- CKEditor Container -->
+            <div class="ckeditor-container">
+                <textarea id="editor-{{ $section['id'] }}" 
+                          name="content-html" 
+                          style="display: none;">
+                    {{ $section['content']['html'] ?? '' }}
+                </textarea>
+            </div>
+            <p class="text-sm text-gray-500 mt-3">
+                Rich text editor with formatting options. Changes auto-save every 1.5 seconds.
+            </p>
         </div>
         
         @elseif($section['type'] === 'features')
@@ -96,39 +102,6 @@
                 + Add Feature
             </button>
         </div>
-        <script>
-        function addFeature(sectionId) {
-            const container = document.getElementById('features-container-' + sectionId);
-            const index = container.children.length;
-            
-            const div = document.createElement('div');
-            div.className = 'flex items-center space-x-2 mb-2';
-            div.innerHTML = `
-                <input type="text" 
-                       oninput="updateSectionContent('${sectionId}', 'items.${index}.title', this.value)"
-                       class="flex-1 px-3 py-2 border border-gray-300 rounded"
-                       placeholder="Feature Title">
-                <input type="text" 
-                       oninput="updateSectionContent('${sectionId}', 'items.${index}.description', this.value)"
-                       class="flex-1 px-3 py-2 border border-gray-300 rounded"
-                       placeholder="Feature Description">
-                <button onclick="this.parentElement.remove()"
-                        class="text-red-600 p-2">
-                    ×
-                </button>
-            `;
-            container.appendChild(div);
-        }
-        
-        function removeFeature(sectionId, index) {
-            // Update the pageContent array
-            const section = pageContent.find(s => s.id === sectionId);
-            if (section && section.content.items) {
-                section.content.items.splice(index, 1);
-                savePage();
-            }
-        }
-        </script>
         
         @else
         <div class="text-gray-500">
@@ -137,3 +110,41 @@
         @endif
     </div>
 </div>
+
+@if($section['type'] === 'features')
+<script>
+function addFeature(sectionId) {
+    const container = document.getElementById('features-container-' + sectionId);
+    const index = container.children.length;
+    
+    const div = document.createElement('div');
+    div.className = 'flex items-center space-x-2 mb-2';
+    div.innerHTML = `
+        <input type="text" 
+               oninput="updateSectionContent('${sectionId}', 'items.${index}.title', this.value)"
+               class="flex-1 px-3 py-2 border border-gray-300 rounded"
+               placeholder="Feature Title">
+        <input type="text" 
+               oninput="updateSectionContent('${sectionId}', 'items.${index}.description', this.value)"
+               class="flex-1 px-3 py-2 border border-gray-300 rounded"
+               placeholder="Feature Description">
+        <button onclick="removeFeature('${sectionId}', ${index})"
+                class="text-red-600 p-2">
+            ×
+        </button>
+    `;
+    container.appendChild(div);
+}
+
+function removeFeature(sectionId, index) {
+    // Update the pageContent array
+    const section = pageContent.find(s => s.id === sectionId);
+    if (section && section.content.items) {
+        section.content.items.splice(index, 1);
+        savePage();
+        // Re-render to update indices
+        renderSections();
+    }
+}
+</script>
+@endif

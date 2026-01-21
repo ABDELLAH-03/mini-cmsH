@@ -101,3 +101,6 @@ Route::post('/sites/{site}/pages/{page}/publish', [PageController::class, 'publi
 Route::post('/sites/{site}/pages/{page}/unpublish', [PageController::class, 'unpublish'])->name('sites.pages.unpublish');
 Route::post('/sites/{site}/publish', [SiteController::class, 'publish'])->name('sites.publish');
 Route::post('/sites/{site}/unpublish', [SiteController::class, 'unpublish'])->name('sites.unpublish');
+// Add this route
+Route::post('/sites/{site}/pages/{page}/delete-section', [PageController::class, 'deleteSection'])
+    ->name('sites.pages.delete-section');
